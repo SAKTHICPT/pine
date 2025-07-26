@@ -1,0 +1,194 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © pinescripter_maroc
+
+
+
+// ICT-Based Trading Indicator (PineScript)
+// A TradingView indicator based on ICT trading concepts to identify Break of Structure (BOS) and Change of Character (CHoCH) setups. Features:
+
+// Identifies & plots key BOS/CHoCH points
+// Visual alerts for structure shifts
+// Double top/bottom confirmations
+// Clean interface with minimal noise
+// Customizable timeframe inputs
+
+// Ideal for price-action focused traders. Works best on higher timeframes.
+
+
+
+
+
+
+//@version=5
+indicator("CHOCH/BOS/ ICT  INDICATOR  ",overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+bars = input.int(defval=2)
+levels = input.bool(true,"levels",tooltip = "show fractallevels ")
+mode   = input.string("ideal fractals","calc mode",["ideal fractals","pivot point"])
+atr_per_2   = input.int(defval=5,title="ATR PERIOD (BREAK) ",
+     tooltip="ATR LENGTH (range of the break)")
+ATR_MULTIP_2    = input.float(defval=1,title="ATR MULTIPLIER (BREAK)",step=0.01,
+     tooltip="used for the range of the break")
+atr    = ta.atr(14)
+atr_2    = ta.atr(atr_per_2)
+//---------------------------------- [SWINGHIGHS LOOP] ------------------------------- // {
+var falling_H = 0 
+for i=0 to bars-1
+    if high[i]<high[i+1]
+        falling_H+=1
+    else 
+        falling_H:=0
+
+
+var rising_H = 0 
+for i=0 to bars-1
+    if high[i]>high[i+1]
+        rising_H+=1
+    else 
+        rising_H:=0
+
+//---------------------------------- [SWINGHIGHS LOOP] ------------------------------- // }
+
+//---------------------------------- [SWINGLOWS  LOOP] ------------------------------- // {
+// swing lows // 
+var falling_L = 0 
+for i=0 to bars-1
+    if low[i]<low[i+1]
+        falling_L+=1
+    else 
+        falling_L:=0
+
+var rising_L = 0 
+for i=0 to bars-1
+    if low[i]>low[i+1]
+        rising_L+=1
+    else 
+        rising_L:=0
+//---------------------------------- [SWINGLOWS  LOOP] ------------------------------- // }
+
+//---------------------------------- [SWINGHIGHS COND] ------------------------------- // {
+// conditions //
+cond_H1 = rising_H>=bars 
+cond_H2 = falling_H>=bars
+// swing high //
+FRH       = cond_H2 and ta.barssince(cond_H1)==bars ? high[bars] : na // [fractal high]
+
+//---------------------------------- [SWINGHIGHS COND] ------------------------------- // }
+PPH = ta.pivothigh(bars,bars)                                         // [pivot high]
+//---------------------------------- [SWINGLOWS  COND] ------------------------------- // {
+// conditions //
+cond_L1 = rising_L >=bars 
+cond_L2 = falling_L>=bars
+//swing low //
+FRL       = cond_L1 and ta.barssince(cond_L2)==bars ? low[bars] : na  // fractal low 
+
+//---------------------------------- [SWINGLOWS  COND] ------------------------------- // }
+PPL = ta.pivotlow(bars,bars)                                          // [pivot low ]
+//------------------------------------[MODE SWITCH]----------------------------------- // {
+s_high = switch mode 
+    "ideal fractals" => FRH
+    "pivot point"    => PPH
+
+
+s_low  = switch mode 
+    "ideal fractals" => FRL
+    "pivot point"    => PPL
+//------------------------------------[MODE SWITCH]----------------------------------- // }
+
+
+//---------------------------------- [SWINGHIGHS PLOTS] ------------------------------- // {
+plot(s_high,'',color.red,2,plot.style_circles,offset = -bars)
+plot(fixnan(s_high),"",color.new(color.orange,75),1,plot.style_linebr,offset = -bars)
+//---------------------------------- [SWINGHIGHS PLOTS] ------------------------------- // }
+
+//---------------------------------- [SWINGLOWS PLOTS] ------------------------------- // {
+plot(s_low,'',color.blue,2,plot.style_circles,offset = -bars)
+plot(fixnan(s_low),"",color.new(color.blue,75),1,plot.style_linebr,offset = -bars)
+//---------------------------------- [SWINGLOWS PLOTS] ------------------------------- // }
+
+d = ATR_MULTIP_2*(atr_2)
+ph = fixnan(s_high)
+b=bar_index
+var int s_high_X1 = 0
+var int h_break= 0 
+var int h_retest = 0 
+var int os = 0 
+var line support = na 
+if ph != ph[1] // new pivot is found 
+    s_high_X1 := b-bars
+    h_break:= 0 
+    h_retest:=0
+
+hb = ta.barssince(ph!=ph[1])
+
+if  (close-d>ph ) and (h_break==0)  //as long as the pph is not boroken by at least a distance == d  //  
+    line.new(s_high_X1,ph,b,ph,xloc.bar_index,color=color.green,style=line.style_solid,width = 2)
+    label.new(int(math.avg(s_high_X1,b)),ph,text=os==-1?"choch":"bos" ,xloc=xloc.bar_index,color=color(na),size = size.normal,textcolor = color.blue)
+    h_break+=1
+    os := 1
+    // support line POI
+    k=2
+    min = low[1]
+    for i = 2 to hb+bars
+        min:= math.min(low[i],min)
+        k := low[i] == min ? i : k
+
+    support := line.new(b-k, min, b, min,color=color.green,style = line.style_dashed)
+
+// bull = ta.crossunder(close,ph)
+// if h_break==1 and bull and h_retest==0
+//     label.new(b,high+atr,"retest",xloc.bar_index,color=color(na),size = size.small,textcolor = color.white)
+//     h_retest+=1
+//     // label.new(b,high+2*d,str.tostring(h_retest),xloc.bar_index)
+
+
+
+pl = fixnan(s_low)
+var int s_low_X1  = 0
+var int l_break = 0
+var int l_retest = 0    
+var line resistance = na
+var float bos_low = na 
+var float bos_low_br = 0
+if pl!= pl[1] 
+    s_low_X1 := b-bars
+    l_break:= 0 
+    l_retest:=0
+
+
+lb = ta.barssince(pl!=pl[1])
+
+if  (close+d<pl ) and (l_break==0)  //as long as the PPL is not boroken by at least a distance == d  //  
+
+    // bos_low    := na
+    line.new(s_low_X1,pl,b,pl,xloc.bar_index,color=color.red,style=line.style_solid,width = 2)
+    label.new(int(math.avg(s_low_X1,b)),pl-0.5*atr,text=os==1?"choch":"bos" ,xloc=xloc.bar_index,color=color(na),size = size.normal,textcolor = color.orange)
+    l_break+=1
+    os := -1
+    bos_low := pl //  when the bos happen save the pivot pl 
+    bos_low_br +=1 
+    // resistence line POI
+    k=2
+    max = high[1]
+    for i = 2 to lb+bars
+        max:= math.max(high[i],max)
+        k := high[i] == max ? i : k
+
+    resistance := line.new(b-k, max, b, max,color=color.red,style = line.style_dashed)
+
+
+
+
+// bear =  high>pl and close<pl//ta.crossover(close,pl)
+// if l_break==1 and bear and l_retest==1
+//     label.new(b,high+atr,"retest",xloc.bar_index,color=color(na),size = size.small,textcolor = color.white)
+//     l_retest+=1
+//     // label.new(b,high+2*d,str.tostring(l_retest),xloc.bar_index)
+
+// plotshape(close<bos_low and bos_low_br>0)
+
+// // ///////////////////////////////////////////[Entry scheme 1]///////////////////////////////////////////
+// if close<bos_low and  bos_low_br > 0
+//     label.new(b,high,str.tostring(bos_low_br))
+
+

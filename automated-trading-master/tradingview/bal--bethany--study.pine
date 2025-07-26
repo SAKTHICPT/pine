@@ -1,0 +1,50 @@
+//@version=3
+// https://github.com/balupton/automated-trading
+study(title="bal--bethany--study", overlay=false)
+
+// ====================================
+// STUDY AND STRATEGY
+
+Session = session.regular
+Ticker = tickerid(syminfo.prefix, ticker, Session)
+RenkoSeries = renko(Ticker, "close", "ATR", 14)
+RenkoResolution = input("30", "Renko Resolution", type=resolution)
+
+RenkoOpen = security(RenkoSeries, RenkoResolution, open)
+RenkoClose = security(RenkoSeries, RenkoResolution, close)
+
+Up = RenkoOpen < RenkoClose
+RenkoColor =  Up ? green : red
+plotcandle(RenkoOpen, max(RenkoClose, RenkoOpen), min(RenkoClose, RenkoOpen), RenkoClose, title='renko', color=RenkoColor)
+
+Change = change(RenkoClose)
+A = valuewhen(Change, RenkoClose, 1)
+B = valuewhen(Change, RenkoClose, 2)
+C = valuewhen(Change, RenkoClose, 3)
+D = valuewhen(Change, RenkoClose, 4)
+E = valuewhen(Change, RenkoClose, 5)
+Close1Up = (Change > 0) and (A > B) and (B < C)
+Close2Up = (Change > 0) and (A > B and B > C) and (C < D)
+Close3Up = (Change > 0) and (A > B and B > C and C < D) and (D < E)
+Close1Down = (Change < 0) and (A < B) and (B > C)
+Close2Down = (Change < 0) and (A < B and B < C) and (C > D)
+Close3Down = (Change < 0) and (A < B and B < C and C < D) and (D > E)
+
+LongEnter = Close2Up
+LongExit = Close1Down
+ShortEnter = Close2Down
+ShortExit = Close1Up
+
+// ====================================
+// STUDY
+
+alertcondition(LongEnter, "buy")
+alertcondition(LongExit, "sell")
+alertcondition(ShortEnter, "short-enter")
+alertcondition(ShortExit, "short-exit")
+
+LongEnterExit = LongEnter ? 1 : (LongExit ? -1 : 0)
+plotarrow(LongEnterExit, title='longenterexit')
+
+ShortEnterExit = ShortEnter ? 1 : (ShortExit ? -1 : 0)
+plotarrow(ShortEnterExit, title='shortenterexit')
