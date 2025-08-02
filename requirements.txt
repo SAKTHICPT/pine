@@ -1,0 +1,8 @@
+python-dotenv
+livekit-agents
+livekit
+livekit-plugins-openai
+requests
+sounddevice
+numpy
+beautifulsoup4
